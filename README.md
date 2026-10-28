@@ -1,45 +1,91 @@
-# N-Puzzle Solver
+# N × N Sliding Puzzle Search
 
-## Overview
+A Python extension of sliding-puzzle search to square boards of configurable size. It includes state transitions, DFS/BFS/UCS implementations, A* experiments, and four size-aware heuristics. The bundled scripts focus on the 4 × 4 board.
 
-This Python project implements a solver for the N-Puzzle problem, where N refers to the dimension of the square puzzle. The puzzle consists of tiles numbered from 1 to N^2 - 1, with one tile missing, allowing for adjacent tiles to be moved into the empty space. The goal is to arrange the tiles into a specific configuration, usually in numerical order. The solver utilizes several search algorithms and heuristics to find a solution efficiently.
+## Representation and goal
 
-## Requirements
+`NPuzzleState(numbers, N)` accepts a flat row-major sequence containing `0` through `N*N-1`; zero represents the blank. The goal starts with the blank at the upper left:
 
-- Python 3.x
-- Additional Python libraries:
-  - pandas for generating CSV reports of the search results.
-  - numpy might be useful for matrix operations, although it's not directly used in the provided code.
-## Installation
+```text
+ 0  1  2  3
+ 4  5  6  7
+ 8  9 10 11
+12 13 14 15
+```
 
-Ensure that Python 3.x is installed on your system. You can download it from the official Python website.
+Legal actions move the blank one cell and cost one. `shuffle_puzzle` applies legal moves from a solved state, preserving reachability.
 
-After installing Python, install the required pandas library (if not already installed) using pip:
+## Setup
 
 ```bash
-pip install pandas
+git clone https://github.com/AbdelilahNossair/NxN-puzzle-game.git
+cd NxN-puzzle-game
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install pandas
 ```
-## Usage
 
-To use the N-Puzzle Solver, follow these steps:
+Python 3 is required. pandas is used by the experiment runner; core search uses the standard library. On Windows use `.venv\Scripts\activate`.
 
-- Prepare your puzzle: Define the initial state of your puzzle as a list of numbers, where 0 represents the empty tile. For example, a 3x3 puzzle could be defined as [1, 2, 3, 4, 5, 6, 7, 8, 0].
-- Run the solver: Execute the script with Python by navigating to the directory containing npuzzle.py and running:
+## Small example
+
+Run from the repository root:
+
+```python
+import npuzzle
+import search
+
+n = 3
+start = npuzzle.NPuzzleState([1, 0, 2, 3, 4, 5, 6, 7, 8], n)
+problem = npuzzle.NPuzzleSearchProblem(start)
+path, expanded, depth, fringe = search.aStarSearch(problem, search.h3, n)
+
+state = start
+for move in path:
+    state = state.result(move)
+assert state.isGoal()
+print(path, expanded, depth, fringe)
+```
+
+A* returns **four values**. The bundled `npuzzle.py` main block assigns that tuple to one variable and prints `len(path)`, so its reported move count is misleading; use the explicit unpacking above.
+
+## Search and heuristics
+
+| Function | Purpose |
+| --- | --- |
+| `depthFirstSearch` | Stack-based graph traversal |
+| `breadthFirstSearch` | Queue-based traversal |
+| `uniformCostSearch` | Priority by accumulated cost |
+| `aStarSearch(problem, heuristic, n)` | Heuristic priority search |
+| `h1` | Misplaced nonblank tiles |
+| `h2` | Sum of Euclidean tile distances |
+| `h3` | Sum of Manhattan tile distances |
+| `h4` | Count of incorrect rows plus incorrect columns |
+
+A* precomputes goal positions. Heuristics receive the state, goal matrix, and position lookup internally.
+
+## CSV experiments
+
+`automate.py` expects a local, headerless `scenarios.csv` containing **16 integers per row** for its hard-coded N=4 experiments. Neither that data file nor a scenario-generation script is included.
+
+Prepare solvable boards by legal shuffling, write each flattened board as a CSV row, then run:
+
 ```bash
-python npuzzle.py
+python automate.py
 ```
-- Analyze the output: The solver will print the shuffled puzzle, the steps to solve it, and the final solved puzzle. Additionally, it generates CSV files with detailed and average results of the search algorithms' performance.
-## Features
 
-- Implements the N-Puzzle state and search problem.
-- Includes search algorithms: A*, Breadth-First Search, Depth-First Search, and Uniform Cost Search.
-- Offers four heuristic functions to improve A* search efficiency.
-- Provides functionality to shuffle puzzles, ensuring solvability.
-- Generates detailed reports on search performance in CSV format.
-## Contributing
+The default entry point writes `detailed_results_task2.csv` and `averages_results_task2.csv` for h1–h4. Additional search comparisons exist in `task3`, but their invocation is commented out. They can be expensive on 4 × 4 boards.
 
-Contributions to the N-Puzzle Solver are welcome. Please feel free to fork the repository, make improvements, and submit pull requests.
+## Architecture
 
-## License
+`npuzzle.py` defines the board, search-problem adapter, shuffle helper, and demo. `search.py` contains algorithms and heuristics; `util.py` supplies data structures; `automate.py` handles CSV input and reporting.
 
-This project is open-source and available under the MIT License. See the LICENSE file for more details.
+## Limitations
+
+The A* implementation mixes heuristic values into its running-cost calculation and then adds a heuristic again when pushing successors. Treat it as an experimental implementation: optimality and benchmark comparisons require correction and regression checks. The scripts also lack board validation, parity checks for user-provided configurations, resource limits, and reproducible sampling controls. Node/fringe counters are not consistent across all algorithms.
+
+This project is related to [8-puzzle-game](https://github.com/AbdelilahNossair/8-puzzle-game). Consolidating both into one maintained solver would reduce duplicated search code.
+
+## Attribution
+
+Preserve the UC Berkeley educational-use notices in inherited search utilities and credit [UC Berkeley AI](http://ai.berkeley.edu). No standalone license file is included.
